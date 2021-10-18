@@ -1,0 +1,20 @@
+#!/bin/sh /etc/rc.common
+# Example script
+# Copyright (C) 2021 KyuzoM
+
+START=90
+STOP=95
+
+pidfile=/tmp/thiefringer.pid
+
+start() {        
+    echo start thiefringer
+    python /path/to/thiefringer.py -c /path/to/.thiefringer.json &
+    echo $! > $pidfile
+}                 
+
+stop() {          
+    echo stop thiefringer
+    kill $(cat $pidfile)
+    rm $pidfile
+}

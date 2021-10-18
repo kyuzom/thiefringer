@@ -1,0 +1,7 @@
+{
+    "motion": {
+        "pin": 5,
+        "active_value": "1",
+        "timeout_sec": 0.1
+    }
+}
