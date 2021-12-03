@@ -11,9 +11,11 @@ Queue like a message bus.
 
 Install extra libraries that this package depends on:
 ``` sh
-opkg install python-light python-setuptools pyOnionGpio pyOledExp power-dock2
+opkg install python-light pyOnionGpio pyOledExp power-dock2
 # clone and install https://github.com/kyuzom/gpydem
 pip install gpydem
+# clone and install https://github.com/kyuzom/ooutils
+pip install ooutils
 ```
 
 ### pip
@@ -57,6 +59,12 @@ Parameters:
           baudrate   [int]   - GSM modem BaudRate (serial port speed),        default: 9600
           PIN        [str]   - SIM card PIN code,                             default: ""
           re_timeout [float] - GSM modem timeout to reboot (after PIN setup), default: 1.0
+      }
+      Battery [map] - LiPo battery level check, default: {}
+      {
+          vmax        [float] - Maximum battery level in [V],                 default: 4.2
+          vmin        [float] - Minimum battery level in [V],                 default: 3.5
+          vpthreshold [float] - Threshold percentage of battery level in [%], default: 20
       }
   }
 ```

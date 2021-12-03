@@ -13,5 +13,10 @@
         "baudrate": 9600,
         "PIN": "",
         "re_timeout": 3.0
+    },
+    "Battery": {
+        "vmax": 4.12,
+        "vmin": 3.5,
+        "vpthreshold": 30
     }
 }
