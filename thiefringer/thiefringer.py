@@ -15,6 +15,7 @@ except (ImportError, ModuleNotFoundError):
 	from queue import Queue
 import onionGpio
 import gpydem
+import ooutils
 
 class ThiefRinger(object):
 	'''
@@ -35,6 +36,7 @@ class ThiefRinger(object):
 		# config defaults
 		self.cfg_PIR = config.get('PIR', {})
 		self.cfg_GSM = config.get('GSM', {})
+		self.cfg_Battery = config.get('Battery', {})
 
 	def run(self):
 		'''
@@ -75,8 +77,9 @@ class ThiefRinger(object):
 		self.thread_ctl.clear()
 		self.thread_msgq = Queue()#self.thread_msgq.clear()
 		self.threads = [
-			threading.Thread(target=self.PIR_motion, args=(self.cfg_PIR, self.thread_ctl, self.thread_msgq), name='PIR_motion'),
-			threading.Thread(target=self.GSM_modem,  args=(self.cfg_GSM, self.thread_ctl, self.thread_msgq), name='GSM_modem')
+			threading.Thread(target=self.PIR_motion,      args=(self.cfg_PIR,     self.thread_ctl, self.thread_msgq), name='PIR_motion'),
+			threading.Thread(target=self.GSM_modem,       args=(self.cfg_GSM,     self.thread_ctl, self.thread_msgq), name='GSM_modem'),
+			threading.Thread(target=self.Battery_monitor, args=(self.cfg_Battery, self.thread_ctl, self.thread_msgq), name='Battery_monitor')
 		]
 		self.threads.append(
 			threading.Thread(target=self.thread_heartbeat, args=(self.threads, self.thread_ctl))
@@ -161,6 +164,34 @@ class ThiefRinger(object):
 					print('GSM_modem SMS sent.')
 		if self.opt.verbose:
 			print('GSM_modem exit')
+
+	def Battery_monitor(self, cfg, ctl, msgq):
+		'''
+		LiPo battery level check main loop.
+		@param cfg: [dict] Configurations
+		@param ctl: [object] Threading control object (Event)
+		@param msgq: [object] Message Queue
+		'''
+		if self.opt.verbose:
+			print('Battery_monitor')
+		# config defaults
+		cfg_vmax = cfg.get('vmax', 4.2)
+		cfg_vmin = cfg.get('vmin', 3.5)
+		cfg_vpthreshold = cfg.get('vpthreshold', 20)
+		# infinite loop
+		vprevious = -1
+		while not ctl.wait(1.0):
+			vactual_percentage = ooutils.battery_percentage(vmax=cfg_vmax, vmin=cfg_vmin)
+			if self.opt.verbose:
+				print('Battery_monitor level percentage: {0} %'.format(vactual_percentage))
+			if vprevious != vactual_percentage:
+				vprevious = vactual_percentage
+				if vactual_percentage <= cfg_vpthreshold:
+					if self.opt.verbose:
+						print('Battery_monitor level is too low!')
+					# What To Do?
+		if self.opt.verbose:
+			print('Battery_monitor exit')
 
 	def thread_heartbeat(self, threads, ctl):
 		'''
