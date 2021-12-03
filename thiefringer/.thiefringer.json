@@ -1,7 +1,17 @@
 {
-    "motion": {
+    "PIR": {
         "pin": 5,
         "active_value": "1",
-        "timeout_sec": 0.1
+        "alarm": {
+            "number": "+36301234567",
+            "message": "ALERT: motion detected!"
+        }
+    },
+    "GSM": {
+        "modem_type": "HuaweiE220",
+        "dev_id": "/dev/ttyUSBalarmE220",
+        "baudrate": 9600,
+        "PIN": "",
+        "re_timeout": 3.0
     }
 }
