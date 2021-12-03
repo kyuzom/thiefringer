@@ -16,6 +16,13 @@ Changes to thiefringer package.
 
  - 
 
+## [0.0.2] - 2021-12-03
+
+**Improvements**
+
+ - SMS sending capability: support 3G GSM modems
+ - Thread checking: support heartbeat mechanism
+
 ## [0.0.1] - 2021-10-18
 
 **Improvements**

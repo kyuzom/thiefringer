@@ -9,7 +9,12 @@ import os
 import argparse
 import json
 import threading
+try:
+	from Queue import Queue
+except (ImportError, ModuleNotFoundError):
+	from queue import Queue
 import onionGpio
+import gpydem
 
 class ThiefRinger(object):
 	'''
@@ -18,13 +23,18 @@ class ThiefRinger(object):
 	def __init__(self, opt):
 		self.opt = opt
 		with open(self.opt.config, 'r') as f:
-			self.config = json.load(f)
+			config = json.load(f)
 		self.main_ctl = threading.Event()
 		self.thread_ctl = threading.Event()
+		self.thread_msgq = Queue()
 		self.threads = []
+		# setup OS signal handlers
 		signal.signal(signal.SIGINT, self.signal_terminate)
 		signal.signal(signal.SIGTERM, self.signal_terminate)
 		#signal.signal(signal.SIGKILL, self.signal_terminate)
+		# config defaults
+		self.cfg_PIR = config.get('PIR', {})
+		self.cfg_GSM = config.get('GSM', {})
 
 	def run(self):
 		'''
@@ -34,9 +44,8 @@ class ThiefRinger(object):
 		if self.opt.verbose:
 			print('run')
 		self.stop_threads()
-		self.main_ctl.clear()
 		self.start_threads()
-		while not self.main_ctl.wait(1):
+		while not self.main_ctl.wait(1.0):
 			pass
 		self.stop_threads()
 
@@ -64,9 +73,14 @@ class ThiefRinger(object):
 		if self.opt.verbose:
 			print('start_threads')
 		self.thread_ctl.clear()
+		self.thread_msgq = Queue()#self.thread_msgq.clear()
 		self.threads = [
-			threading.Thread(target=self.detect_motion, args=(self.config.get('motion', {}), self.thread_ctl))
+			threading.Thread(target=self.PIR_motion, args=(self.cfg_PIR, self.thread_ctl, self.thread_msgq), name='PIR_motion'),
+			threading.Thread(target=self.GSM_modem,  args=(self.cfg_GSM, self.thread_ctl, self.thread_msgq), name='GSM_modem')
 		]
+		self.threads.append(
+			threading.Thread(target=self.thread_heartbeat, args=(self.threads, self.thread_ctl))
+		)
 		if self.opt.verbose:
 			print('num of threads: %d' % len(self.threads))
 		for t in self.threads:
@@ -79,37 +93,91 @@ class ThiefRinger(object):
 		if self.opt.verbose:
 			print('stop_threads')
 		self.thread_ctl.set()
+		self.thread_msgq.join()	# wait until all alarms are sent
 		for t in self.threads:
 			t.join()
 
-	def detect_motion(self, cfg, ctl):
+	def PIR_motion(self, cfg, ctl, msgq):
 		'''
-		Motion detection main loop.
+		PIR motion detector main loop.
 		@param cfg: [dict] Configurations
 		@param ctl: [object] Threading control object (Event)
+		@param msgq: [object] Message Queue
 		'''
 		if self.opt.verbose:
-			print('detect_motion')
+			print('PIR_motion')
 		# config defaults
 		cfg_pin = cfg.get('pin', -1)
-		cfg_active_value = cfg.get('active_value', "0")
-		cfg_timeout_sec = cfg.get('timeout_sec', 0.1)
-		# Pin init
+		cfg_active_value = cfg.get('active_value', '0')
+		cfg_alarm = cfg.get('alarm', {})
+		cfg_alarm_number = cfg_alarm.get('number', '')
+		cfg_alarm_message = cfg_alarm.get('message', 'ALERT')
+		if sys.version_info[0] == 2:
+			cfg_alarm_number = str(cfg_alarm_number)
+			cfg_alarm_message = str(cfg_alarm_message)
+		# PIR motion detector GPIO pin init
 		gpio = onionGpio.OnionGpio(cfg_pin)
 		if gpio.setInputDirection():
 			raise RuntimeError("Could not set GPIO direction to input!")
 		prev_value = '0' if cfg_active_value == '1' else '1'
 		# infinite loop
-		while not ctl.wait(cfg_timeout_sec):
+		while not ctl.wait(0.1):
 			value = gpio.getValue().strip()
 			if prev_value != value:
 				if value == cfg_active_value:
 					if self.opt.verbose:
-						print("ALARM: motion detected")
-					# WHAT TO DO ???
+						print("PIR_motion ALERT: motion detected!")
+					msgq.put((cfg_alarm_number, cfg_alarm_message), block=True, timeout=1.0)
 				prev_value = value
 		if self.opt.verbose:
-			print('detect_motion exit')
+			print('PIR_motion exit')
+
+	def GSM_modem(self, cfg, ctl, msgq):
+		'''
+		GSM 3G USB modem main loop.
+		@param cfg: [dict] Configurations
+		@param ctl: [object] Threading control object (Event)
+		@param msgq: [object] Message Queue
+		'''
+		if self.opt.verbose:
+			print('GSM_modem')
+		# config defaults
+		cfg_modem_type = cfg.get('modem_type', '')
+		cfg_dev_id = cfg.get('dev_id', '/dev/ttyS0')
+		cfg_baudrate = cfg.get('baudrate', 9600)
+		cfg_PIN = cfg.get('PIN', '')
+		cfg_re_timeout = cfg.get('re_timeout', 1.0)
+		# GSM 3G USB modem serial port init
+		gsm = gpydem.Modem.get(cfg_modem_type, cfg_dev_id, baudrate=cfg_baudrate, PIN=cfg_PIN, re_timeout=cfg_re_timeout)
+		# infinite loop
+		while not ctl.wait(1.0):
+			if not msgq.empty():
+				number, message = msgq.get(block=True, timeout=1.0)
+				msgq.task_done()
+				if self.opt.verbose:
+					print('GSM_modem sending SMS: {0}, {1}'.format(number, message))
+				gsm.sendSMS(number, message)
+				if self.opt.verbose:
+					print('GSM_modem SMS sent.')
+		if self.opt.verbose:
+			print('GSM_modem exit')
+
+	def thread_heartbeat(self, threads, ctl):
+		'''
+		Thread heartbeat main loop.
+		@param threads: [list] Threads to check periodically
+		@param ctl: [object] Threading control object (Event)
+		'''
+		if self.opt.verbose:
+			print('thread_heartbeat')
+		# infinite loop
+		while not ctl.wait(1.0):
+			for t in threads:
+				if not t.is_alive():
+					print('Thread {0} is dead! See previous messages for more details.'.format(t.name), file=sys.stderr)
+					self.terminate()
+		if self.opt.verbose:
+			print('thread_heartbeat exit')
 
 def main():
 	'''
