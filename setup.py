@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="thiefringer",
-    version="0.0.2",
+    version="0.0.3",
     author="KyuzoM",
     author_email="99549950+kyuzom@users.noreply.github.com",
     description="ThiefRinger alarm system",
