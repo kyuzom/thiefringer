@@ -15,8 +15,14 @@
         "re_timeout": 3.0
     },
     "Battery": {
+        "frequency": 60,
+        "timeout": 1,
         "vmax": 4.12,
         "vmin": 3.5,
-        "vpthreshold": 30
+        "vpthreshold": 30,
+        "alarm": {
+            "number": "+36301234567",
+            "message": "ALERT: battery low!"
+        }
     }
 }

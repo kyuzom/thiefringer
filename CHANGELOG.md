@@ -2,19 +2,15 @@
 
 Changes to thiefringer package.
 
-## [Unreleased]
+## [0.0.3] - 2021-12-05
 
 **Improvements**
 
- - 
+ - LiPo battery level supports termination, frequency
 
 **Changes**
 
- - 
-
-**Fixes**
-
- - 
+ - Alerts only sent one time after restart
 
 ## [0.0.2] - 2021-12-03
 

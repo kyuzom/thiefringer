@@ -5,6 +5,12 @@ ThiefRinger - alarm system.
 Threads like microservices - They running simultaneously and communicate via Queue.
 Queue like a message bus.
 
+**NOTE!** This is a quick and dirty script for hobby usage only!
+* This is not a microservice architecture -> It uses multithreading and messaging queues
+* This is not a plugin-based architecture -> It utilizes config sections and external libs
+
+***It is a miniature script; It runs on OnionOmega which is an embedded linux board running OpenWrt OS; It tries to use as less overhead as possible to do the job.***
+
 ## Installation
 
 ### libs
@@ -58,13 +64,20 @@ Parameters:
           dev_id     [str]   - GSM modem character device (serial port Id),   default: "/dev/ttyS0"
           baudrate   [int]   - GSM modem BaudRate (serial port speed),        default: 9600
           PIN        [str]   - SIM card PIN code,                             default: ""
-          re_timeout [float] - GSM modem timeout to reboot (after PIN setup), default: 1.0
+          re_timeout [float] - GSM modem timeout to reboot (after PIN setup), default: 1
       }
       Battery [map] - LiPo battery level check, default: {}
       {
+          frequency   [float] - Battery level measurement frequency in [s],   default: 60
+          timeout     [float] - Battery level measurement timeout in [s],     default: 1
           vmax        [float] - Maximum battery level in [V],                 default: 4.2
           vmin        [float] - Minimum battery level in [V],                 default: 3.5
           vpthreshold [float] - Threshold percentage of battery level in [%], default: 20
+          alarm       [map]   - Battery message related configurations, default: {}
+          {
+              number  [str] - Phone number, default: ""
+              message [str] - SMS Message,  default: "BATTERY"
+          }
       }
   }
 ```
